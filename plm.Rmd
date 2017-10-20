@@ -1,0 +1,141 @@
+---
+title: "Practical Machine Learning Project"
+author: "Olivier Detandt"
+date: "13 October 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here:http://groupware.les.inf.puc-rio.br/har(see the section on the Weight Lifting Exercise Dataset).
+
+The data for this project come from this source:http://groupware.les.inf.puc-rio.br/har.
+
+The goal of the project is to predict the manner in which they did the exercise by using the output variable "classe" in the training set.
+
+The different classes are:
+A: exactly according to the specification 
+B: throwing the elbows to the front
+C: lifting the dumbbell only halfway 
+D: lowering the dumbbell only halfway 
+D: throwing the hips to the front 
+
+
+Here are the steps followed:
+1. Load and Clean-up data 
+2. Split of the training set into sub-training (75%) and sub-test set (25%).
+3. Perform models: tree, linear discriminant analysis and random forest were choosen
+4. Choose best model based on best accuracy performances on subtest set
+5. Prediction on the test set provided
+
+
+###Load and Clean-up data  
+Irrelevant features as well asfeatures with missing values will be removed.
+
+
+```{r }
+setwd("C:/Users/olivier.detandt/Documents/Doc/DataScience/Machine Learning/Project")
+train=read.csv("pml-training.csv",na.strings=c("NA","#DIV/0!", ""))
+test=read.csv("pml-testing.csv",na.strings=c("NA","#DIV/0!", ""))
+train<-train[,colSums(is.na(train)) == 0] #keep only columns where no na
+test <-test[,colSums(is.na(test)) == 0]
+train   <-train[,-c(1:7)] #keep only relvevant columns
+test   <-test[,-c(1:7)]
+```
+
+
+###Split of training set into sub-training and sub-test set
+
+The split will be done as: 75% on sub-training and 25% of sub-test.
+
+A seed of 100 is set in order to reproduce the analysis.
+
+```{r, message=FALSE, warning=FALSE }
+# Split subtrain sub test
+set.seed(100)
+library(caret)
+library(ggplot2)
+
+
+insubtrain<-createDataPartition(y=train$classe, p=0.75, list=FALSE)
+
+subtrain<-train[insubtrain,]
+subtest<-train[-insubtrain,]
+
+```
+
+###Perform models
+
+####Trees
+
+```{r , message=FALSE, warning=FALSE}
+
+library(rattle)
+library(rpart)
+
+fit1 <- rpart(classe ~ ., data=subtrain, method="class")
+
+fancyRpartPlot(fit1)
+ 
+pred1train <- predict(fit1, subtrain, type = "class")
+confusionMatrix(pred1train, subtrain$classe)
+pred1test <- predict(fit1, subtest, type = "class")
+accuracyfit1 <- sum(pred1test == subtest$classe) / length(pred1test)
+accuracyfit1
+
+```
+This model has an accuracy of 73.3% on the subtraining set but fall to 72.25% on the subtest set.
+
+
+
+
+####Linear Discriminant Anlalysis
+
+```{r , message=FALSE, warning=FALSE}
+library(MASS)
+
+
+fit2 <- train(classe ~ ., data=subtrain, method="lda")
+pred2train <- predict(fit2, subtrain)
+confusionMatrix(pred2train, subtrain$classe)
+pred2test <- predict(fit2, subtest)
+
+accuracyfit2 <- sum(pred2test == subtest$classe) / length(pred2test)
+accuracyfit2
+
+
+
+```
+
+This model has an accuracy of 70.1% on the subtraining set and 69.5% on the subtest set.
+We can see that this model perfom less on the subtest set than the simple tree model.
+
+
+####Random Forest
+```{r , message=FALSE, warning=FALSE}
+
+library(randomForest)
+fit3 <- train(classe ~ ., data=subtrain, method="rf",ntree = 5)
+pred3train <- predict(fit3, subtrain)
+confusionMatrix(pred3train, subtrain$classe)
+pred3test <- predict(fit3, subtest)
+accuracyfit3 <- sum(pred3test == subtest$classe) / length(pred3test)
+accuracyfit3
+```
+This model has an accuracy of 99.9% on the subtraining set and 97.96% on the subtest set.
+So the best performance seen.
+
+###Model Selection
+
+Randfom forest is choosen as the accuracy is the lowest on the subtest set (97.96%). We have to keep in mind that this model is good for prediction as it procudes the highest accuracy but in on the other hand less interpretable than a classical tree model.
+
+###Prediction on the given test set
+The prediction with random forest on the test set is:
+```{r , message=FALSE, warning=FALSE}
+predicttest <- predict(fit3, test)
+predicttest
+```
